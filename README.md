@@ -28,7 +28,7 @@ You can add screenshots like:
 ### Installation
 
 ```bash
-git clone https://github.com/SegmentLens/sam3-nodejs-demo.git
+git clone https://github.com/segmentany/sam3-nodejs-demo
 cd sam3-nodejs-demo
 npm install
 ```
