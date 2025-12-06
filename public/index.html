@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAM3 API Demo</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 { margin-top: 0; color: #333; }
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        label { font-weight: bold; color: #555; }
+        input[type="text"], input[type="file"] {
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+        }
+        button {
+            background-color: #0070f3;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        button:hover { background-color: #0051a2; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        button.secondary {
+            background-color: #666;
+        }
+        button.secondary:hover { background-color: #444; }
+        
+        .preview-area {
+            position: relative;
+            margin-top: 20px;
+            border: 2px dashed #ddd;
+            border-radius: 8px;
+            min-height: 300px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            background-color: #fafafa;
+            cursor: crosshair;
+        }
+        canvas {
+            max-width: 100%;
+            height: auto;
+        }
+        .loading {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255,255,255,0.95);
+            padding: 20px 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            font-weight: bold;
+            z-index: 10;
+        }
+        .status {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 6px;
+            display: none;
+        }
+        .status.error { background: #fee; color: #c00; display: block; }
+        .status.success { background: #e6fffa; color: #0070f3; display: block; }
+        
+        .results-section {
+            margin-top: 30px;
+            display: none;
+        }
+        .results-section.active { display: block; }
+        .results-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        .objects-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 15px;
+        }
+        .object-card {
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            background: white;
+        }
+        .object-card:hover {
+            border-color: #0070f3;
+            box-shadow: 0 2px 8px rgba(0,112,243,0.2);
+            transform: translateY(-2px);
+        }
+        .object-card img {
+            width: 100%;
+            height: 120px;
+            object-fit: contain;
+            border-radius: 4px;
+            background: #f9f9f9;
+        }
+        .object-card .label {
+            margin-top: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            color: #333;
+        }
+        .object-card .confidence {
+            font-size: 12px;
+            color: #666;
+        }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.7);
+            animation: fadeIn 0.2s;
+        }
+        .modal.active { display: flex; align-items: center; justify-content: center; }
+        .modal-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 12px;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow: auto;
+            position: relative;
+            animation: slideIn 0.3s;
+        }
+        .modal-close {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            font-size: 28px;
+            font-weight: bold;
+            color: #999;
+            cursor: pointer;
+            background: none;
+            border: none;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            line-height: 30px;
+        }
+        .modal-close:hover { color: #333; }
+        .modal-image {
+            width: 100%;
+            max-height: 400px;
+            object-fit: contain;
+            border-radius: 8px;
+            background: #f9f9f9;
+            margin-bottom: 20px;
+        }
+        .modal-info {
+            margin-bottom: 20px;
+        }
+        .modal-info h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+        }
+        .modal-info p {
+            margin: 5px 0;
+            color: #666;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>SAM3 Segmentation Demo</h1>
+        
+        <div class="controls">
+            <div class="input-group">
+                <label>1. Select Image</label>
+                <input type="file" id="fileInput" accept="image/*">
+                <small style="color: #666">Images larger than 1024x1024 will be automatically resized.</small>
+            </div>
+            
+            <div class="input-group">
+                <label>2. Enter Prompts (comma separated)</label>
+                <input type="text" id="promptInput" placeholder="e.g. cat, dog, sunglasses" value="cat">
+            </div>
+
+            <button id="segmentBtn" disabled>Segment Image</button>
+        </div>
+
+        <div id="status" class="status"></div>
+
+        <div class="preview-area" id="previewContainer">
+            <div class="loading" id="loading">Processing...</div>
+            <canvas id="imageCanvas"></canvas>
+        </div>
+
+        <div class="results-section" id="resultsSection">
+            <div class="results-header">
+                <h2>Segmented Objects (<span id="objectCount">0</span>)</h2>
+                <button id="downloadAllBtn" class="secondary">Download All</button>
+            </div>
+            <div class="objects-grid" id="objectsGrid"></div>
+        </div>
+    </div>
+
+    <!-- Modal for object details -->
+    <div id="objectModal" class="modal">
+        <div class="modal-content">
+            <button class="modal-close" onclick="closeModal()">&times;</button>
+            <img id="modalImage" class="modal-image" src="" alt="Object">
+            <div class="modal-info">
+                <h3 id="modalLabel">Object</h3>
+                <p>Confidence: <strong id="modalConfidence">0%</strong></p>
+            </div>
+            <button id="modalDownloadBtn" style="width: 100%;">Download This Object</button>
+        </div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const promptInput = document.getElementById('promptInput');
+        const segmentBtn = document.getElementById('segmentBtn');
+        const canvas = document.getElementById('imageCanvas');
+        const ctx = canvas.getContext('2d');
+        const loading = document.getElementById('loading');
+        const statusDiv = document.getElementById('status');
+        const resultsSection = document.getElementById('resultsSection');
+        const objectsGrid = document.getElementById('objectsGrid');
+        const objectCount = document.getElementById('objectCount');
+        const downloadAllBtn = document.getElementById('downloadAllBtn');
+        const objectModal = document.getElementById('objectModal');
+        const modalImage = document.getElementById('modalImage');
+        const modalLabel = document.getElementById('modalLabel');
+        const modalConfidence = document.getElementById('modalConfidence');
+        const modalDownloadBtn = document.getElementById('modalDownloadBtn');
+
+        let originalImage = null;
+        let resizedBase64 = null;
+        let scaleFactor = 1;
+        let segmentedObjects = [];
+
+        // Handle File Selection
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = (event) => {
+                const img = new Image();
+                img.onload = () => {
+                    originalImage = img;
+                    processImage(img);
+                    segmentBtn.disabled = false;
+                    resultsSection.classList.remove('active');
+                    segmentedObjects = [];
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+
+        // Resize image if needed and draw to canvas
+        function processImage(img) {
+            const MAX_SIZE = 1024;
+            let width = img.width;
+            let height = img.height;
+
+            if (width > MAX_SIZE || height > MAX_SIZE) {
+                if (width > height) {
+                    height = Math.round((height * MAX_SIZE) / width);
+                    width = MAX_SIZE;
+                } else {
+                    width = Math.round((width * MAX_SIZE) / height);
+                    height = MAX_SIZE;
+                }
+            }
+
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = width;
+            tempCanvas.height = height;
+            const tempCtx = tempCanvas.getContext('2d');
+            tempCtx.drawImage(img, 0, 0, width, height);
+
+            resizedBase64 = tempCanvas.toDataURL('image/jpeg', 0.8);
+            scaleFactor = img.width / width;
+
+            console.log(`Original: ${img.width}x${img.height}, Resized: ${width}x${height}, Scale: ${scaleFactor}`);
+        }
+
+        // Handle Segmentation
+        segmentBtn.addEventListener('click', async () => {
+            if (!resizedBase64) return;
+
+            const prompts = promptInput.value.split(',').map(p => p.trim()).filter(p => p);
+            if (prompts.length === 0) {
+                showStatus('Please enter at least one prompt', 'error');
+                return;
+            }
+
+            loading.style.display = 'block';
+            segmentBtn.disabled = true;
+            showStatus('', '');
+
+            try {
+                const response = await fetch('/api/segment', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        image: resizedBase64,
+                        prompts: prompts
+                    })
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || 'Segmentation failed');
+                }
+
+                processResults(data);
+                showStatus(`Success! Found ${segmentedObjects.length} object(s).`, 'success');
+
+            } catch (error) {
+                console.error(error);
+                showStatus(error.message, 'error');
+            } finally {
+                loading.style.display = 'none';
+                segmentBtn.disabled = false;
+            }
+        });
+
+        function processResults(data) {
+            ctx.drawImage(originalImage, 0, 0);
+            segmentedObjects = [];
+
+            if (!data.prompt_results) return;
+
+            data.prompt_results.forEach(result => {
+                if (!result.predictions) return;
+
+                result.predictions.forEach(prediction => {
+                    if (prediction.masks && prediction.masks.length > 0) {
+                        const label = prediction.label || result.echo?.text || 'object';
+                        const confidence = prediction.confidence || 0.99;
+                        
+                        // Scale polygons to original size
+                        const scaledMasks = prediction.masks.map(polygon => 
+                            polygon.map(pt => [pt[0] * scaleFactor, pt[1] * scaleFactor])
+                        );
+
+                        // Draw on canvas
+                        ctx.fillStyle = 'rgba(0, 112, 243, 0.3)';
+                        ctx.strokeStyle = '#0070f3';
+                        ctx.lineWidth = 3;
+
+                        scaledMasks.forEach(polygon => {
+                            ctx.beginPath();
+                            ctx.moveTo(polygon[0][0], polygon[0][1]);
+                            for (let i = 1; i < polygon.length; i++) {
+                                ctx.lineTo(polygon[i][0], polygon[i][1]);
+                            }
+                            ctx.closePath();
+                            ctx.fill();
+                            ctx.stroke();
+                        });
+
+                        // Generate cropped thumbnail
+                        const thumbnail = cropObject(scaledMasks);
+                        
+                        segmentedObjects.push({
+                            label,
+                            confidence,
+                            masks: scaledMasks,
+                            thumbnail
+                        });
+                    }
+                });
+            });
+
+            displayObjects();
+        }
+
+        function cropObject(masks) {
+            // Calculate bounding box
+            let minX = Infinity, maxX = -Infinity;
+            let minY = Infinity, maxY = -Infinity;
+
+            masks.forEach(polygon => {
+                polygon.forEach(pt => {
+                    minX = Math.min(minX, pt[0]);
+                    maxX = Math.max(maxX, pt[0]);
+                    minY = Math.min(minY, pt[1]);
+                    maxY = Math.max(maxY, pt[1]);
+                });
+            });
+
+            const padding = 10;
+            const width = maxX - minX + padding * 2;
+            const height = maxY - minY + padding * 2;
+
+            const cropCanvas = document.createElement('canvas');
+            cropCanvas.width = width;
+            cropCanvas.height = height;
+            const cropCtx = cropCanvas.getContext('2d');
+
+            // Create clipping path
+            cropCtx.beginPath();
+            masks.forEach(polygon => {
+                cropCtx.moveTo(polygon[0][0] - minX + padding, polygon[0][1] - minY + padding);
+                for (let i = 1; i < polygon.length; i++) {
+                    cropCtx.lineTo(polygon[i][0] - minX + padding, polygon[i][1] - minY + padding);
+                }
+                cropCtx.closePath();
+            });
+            cropCtx.clip();
+
+            // Draw cropped image
+            cropCtx.drawImage(
+                originalImage,
+                minX, minY, maxX - minX, maxY - minY,
+                padding, padding, maxX - minX, maxY - minY
+            );
+
+            return cropCanvas.toDataURL('image/png');
+        }
+
+        function displayObjects() {
+            objectsGrid.innerHTML = '';
+            objectCount.textContent = segmentedObjects.length;
+
+            if (segmentedObjects.length > 0) {
+                resultsSection.classList.add('active');
+            }
+
+            segmentedObjects.forEach((obj, index) => {
+                const card = document.createElement('div');
+                card.className = 'object-card';
+                card.innerHTML = `
+                    <img src="${obj.thumbnail}" alt="${obj.label}">
+                    <div class="label">${obj.label}</div>
+                    <div class="confidence">${Math.round(obj.confidence * 100)}%</div>
+                `;
+                card.onclick = () => showObjectModal(index);
+                objectsGrid.appendChild(card);
+            });
+        }
+
+        function showObjectModal(index) {
+            const obj = segmentedObjects[index];
+            modalImage.src = obj.thumbnail;
+            modalLabel.textContent = obj.label;
+            modalConfidence.textContent = Math.round(obj.confidence * 100) + '%';
+            
+            modalDownloadBtn.onclick = () => downloadObject(obj, index);
+            objectModal.classList.add('active');
+        }
+
+        function closeModal() {
+            objectModal.classList.remove('active');
+        }
+
+        function downloadObject(obj, index) {
+            const link = document.createElement('a');
+            link.download = `${obj.label}-${index + 1}.png`;
+            link.href = obj.thumbnail;
+            link.click();
+        }
+
+        downloadAllBtn.addEventListener('click', () => {
+            segmentedObjects.forEach((obj, index) => {
+                setTimeout(() => downloadObject(obj, index), index * 200);
+            });
+        });
+
+        // Close modal on outside click
+        objectModal.addEventListener('click', (e) => {
+            if (e.target === objectModal) {
+                closeModal();
+            }
+        });
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') {
+                closeModal();
+            }
+        });
+
+        function showStatus(msg, type) {
+            statusDiv.textContent = msg;
+            statusDiv.className = 'status ' + type;
+        }
+    </script>
+</body>
+</html>
